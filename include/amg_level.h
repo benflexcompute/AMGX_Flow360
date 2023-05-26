@@ -253,9 +253,9 @@ class AMG_GenerateNextCycles<TConfig, MemSpace, MemSpace, CycleDispatcher>
         {
             typedef typename TConfig::MemSpace MemorySpace;
             Solver<TConfig> *coarseSolver = amg->getCoarseSolver( MemorySpace() );
-
             if ( level->isCoarsest( ) && coarseSolver )
             {
+                // nvtxRange CoarseSolver("CoarseSolver");
                 level->launchCoarseSolver( amg, b, x );
             }
             else

@@ -40,6 +40,7 @@
 #include <matrix.h>
 #include <matrix_cusp.h>
 #include <amgx_cusparse.h>
+#include <amgx_timer.h>
 #ifdef _WIN32
 #pragma warning (pop)
 #endif
@@ -120,13 +121,17 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
 
     if (latencyHiding)
     {
-        A.manager->exchange_halo_split_gather(B, B.tag);
+        {
+            A.manager->exchange_halo_split_gather(B, B.tag);
+        }
 
         // Multiply interior rows
         multiply_block_size(A, B, C, A.getViewInterior());
 
         // Finish halo exchange
-        A.manager->exchange_halo_split_finish(B, B.tag);
+        {
+            A.manager->exchange_halo_split_finish(B, B.tag);
+        }
 
         // Multiply rows with halo dependencies
         ViewType bnd_view = (ViewType)(~(A.getViewInterior()) & A.getViewExterior());
@@ -136,10 +141,15 @@ void multiply(Matrix<TConfig> &A, Vector<TConfig> &B, Vector<TConfig> &C, ViewTy
     {
         if (view != INTERIOR && !A.is_matrix_singleGPU() && B.dirtybit != 0)
         {
-            A.manager->exchange_halo_v2(B, B.tag);
+            // nvtxRange test("exchange_halo_NoRecvBuffer");
+            // A.manager->exchange_halo_v2(B, B.tag);
+            A.manager->exchange_halo_NoRecvBuffer(B, B.tag);
         }
 
-        multiply_block_size(A, B, C, view);
+        {
+            // nvtxRange test("multiply_block_size");
+            multiply_block_size(A, B, C, view);
+        }
     }
 
     C.dirtybit = 1;

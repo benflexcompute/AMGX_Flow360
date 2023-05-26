@@ -132,6 +132,7 @@ bool
 PCG_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
 {
     AMGX_CPU_PROFILER( "PCG_Solver::solve_iteration " );
+    // nvtxRange amg_si("PCG_Solver::solve_iteration");
     Operator<T_Config> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -156,10 +157,13 @@ PCG_Solver<T_Config>::solve_iteration( VVector &b, VVector &x, bool xIsZero )
         alpha = m_r_z / dot_App;
     }
 
-    // x = x + alpha * p.
-    axpy( m_p, x, alpha, offset, size );
-    // r = r - alpha * Ap.
-    axpy( m_Ap, *this->m_r, -alpha, offset, size );
+    {
+        // nvtxRange zaa("2X_axpy");
+        // x = x + alpha * p.
+        axpy(m_p, x, alpha, offset, size);
+        // r = r - alpha * Ap.
+        axpy(m_Ap, *this->m_r, -alpha, offset, size);
+    }
 
     // Do we converge ?
     if ( this->m_monitor_convergence && this->compute_norm_and_converged() )

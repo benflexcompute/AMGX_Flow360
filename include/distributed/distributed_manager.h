@@ -55,6 +55,7 @@ template <class TConfig> class Energymin_AMG_Level_Base;
 #include <cstdio>
 
 #include <amgx_cusparse.h>
+#include <amgx_timer.h>
 #include <thrust/sequence.h>
 #include <vector.h>
 #include <error.h>
@@ -1002,9 +1003,39 @@ template <typename TConfig> class DistributedManagerBase
 
             if (_comms->exchange_halo_query(data, *A, comm_event) || data.dirtybit == 0 || (data.in_transfer & RECEIVING)) { return; } //if single node/already arrived/not dirty/already receiving return
 
-            _comms->setup(data, *A, tag);  //set pointers to buffer
-            gather_B2L_v2(data);             //write values to buffer
-            _comms->exchange_halo(data, *A, tag); //begin async send
+            {
+                // nvtxRange test("setup");
+                _comms->setup(data, *A, tag);  // set pointers to buffer
+            }
+            {
+                // nvtxRange test("gather_B2L_v2");
+                gather_B2L_v2(data);  // write values to buffer
+            }
+            {
+                // nvtxRange test("exchange_halo");
+                _comms->exchange_halo(data, *A, tag);  // begin async send
+            }
+        }
+
+        template <class Vector>
+        void exchange_halo_NoRecvBuffer(Vector &data, int tag)
+        {
+            if (_comms == NULL) {data.dirtybit = 0; return;}
+
+            if (_comms->exchange_halo_query(data, *A, comm_event) || data.dirtybit == 0 || (data.in_transfer & RECEIVING)) { return; } //if single node/already arrived/not dirty/already receiving return
+
+            {
+                // nvtxRange test("setup");
+                _comms->setup(data, *A, tag);  // set pointers to buffer
+            }
+            {
+                // nvtxRange test("gather_B2L_v2");
+                gather_B2L_v2(data);  // write values to buffer
+            }
+            {
+                // nvtxRange test("exchange_halo_2step");
+                _comms->exchange_halo_2step(data, *A, tag);  // begin async send
+            }
         }
 
         template <class Vector>

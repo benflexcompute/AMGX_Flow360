@@ -146,7 +146,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
     // set num neighbors = size of b2l_rings
     // need to do this because comms might have more neighbors than our matrix knows about
     set_neighbors(m.manager->B2L_rings.size());
-
+    bool bufferChange = false;
     if (b.in_transfer & SENDING)
     {
         b.in_transfer = IDLE;
@@ -169,6 +169,7 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
         amgx::memory::cudaMallocHost((void **) & (b.linear_buffers), neighbors * sizeof(vtyp *));
         b.linear_buffers_size = neighbors;
         b.linear_buffers_ptrs.resize(neighbors);
+        bufferChange = true;
     }
 
     cudaCheckError();
@@ -185,10 +186,12 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
 
     if (b.buffer == NULL)
     {
+        bufferChange = true;
         b.buffer = new T(total_size);
     }
     else if (total_size > b.buffer->size())
     {
+        bufferChange = true;
         b.buffer->resize(total_size);
 
         // It is more efficient to synchronise only when linear buffers change
@@ -203,7 +206,8 @@ void CommsMPIHostBufferStream<T_Config>::do_setup(T &b, const Matrix<TConfig> &m
     }
 
     // Copy to device
-    {
+    if(bufferChange){
+        // nvtxRange test("bufferPtrCpy");
         cudaMemcpy(thrust::raw_pointer_cast(&b.linear_buffers_ptrs[0]), &(b.linear_buffers[0]), neighbors * sizeof(vtyp *), cudaMemcpyDefault);
         cudaCheckError();
     }
@@ -623,9 +627,9 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo(T &b, const Matrix<TCo
     fsmV.get_functors().push_back(&ex1);
     fsmV.get_functors().push_back(&ex2);
     fsmV.get_functors().push_back(&ex3);
-    Accept(fsmV);
+        Accept(fsmV);
     fsmV.next();//advance FSM
-    b.in_transfer = RECEIVING | SENDING;
+        b.in_transfer = RECEIVING | SENDING;
     Accept(fsmV);
     ex3.get_offset() = ex2.get_offset();//pass relevant info from one state to another
     fsmV.next();//advance FSM
@@ -633,6 +637,69 @@ void CommsMPIHostBufferStream<T_Config>::do_exchange_halo(T &b, const Matrix<TCo
     b.dirtybit = 0;
     //FSM step 3:
     Accept(fsmV);
+#else
+    FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
+#endif
+}
+
+template <class T_Config>
+template <class T>
+void CommsMPIHostBufferStream<T_Config>::do_exchange_halo_2step(T &b, const Matrix<TConfig> &m, int num_rings)
+{
+#ifdef AMGX_WITH_MPI
+    typedef typename T::value_type value_type;
+
+    int bsize = b.get_block_size();
+    int neighbors = m.manager->num_neighbors();
+    int num_cols = b.get_num_cols();
+    MPI_Comm mpi_comm = this->get_mpi_comm();
+
+    // cudaStream_t stream = get_stream();
+    cudaStreamSynchronize(NULL);
+    assert(num_rings == 1);
+    assert(num_cols == 1);
+    assert(offset != 0);
+
+    //-- Post Recv
+    int offset = 0;
+    for (int i = 0; i < neighbors; i++) {
+        // Count total size to receive from one neighbor
+        int size = (m.manager->halo_offset(i + 1) - m.manager->halo_offset(i)) * bsize * num_cols;
+        // auto recvPtr = b.buffer->raw() + b.buffer_size + offset;
+        MPI_Irecv(b.raw() + m.manager->halo_offset(0) * bsize + offset,
+                size * sizeof(typename T::value_type),
+                MPI_BYTE,
+                m.manager->neighbors[i],
+                m.manager->neighbors[i],
+                mpi_comm,
+                &b.requests[neighbors + i]);
+        offset += size;
+        int required_size = m.manager->halo_offset(i) * bsize * num_cols + size;
+
+        if (required_size > b.size()) {
+            error_vector_too_small(b, required_size);
+        }
+    }
+
+    //-- Post send
+    for (int i = 0; i < neighbors; i++)
+    {
+        int size = m.manager->getB2Lrings()[i][num_rings] * bsize * num_cols;
+        MPI_Isend(b.linear_buffers[i],
+                  size * sizeof(typename T::value_type),
+                  MPI_BYTE,
+                  m.manager->neighbors[i],
+                  m.manager->global_id(),
+                  mpi_comm,
+                  &b.requests[i]);
+    }
+
+    //-- Copy to original array
+    // I only wait to receive data, I can start working before
+    // all my buffers were sent
+    MPI_Waitall(neighbors, &b.requests[neighbors], MPI_STATUSES_IGNORE); //RECV
+    MPI_Waitall(neighbors, &b.requests[0], MPI_STATUSES_IGNORE); //SEND
+    b.dirtybit = 0;
 #else
     FatalError("MPI Comms module requires compiling with MPI", AMGX_ERR_NOT_IMPLEMENTED);
 #endif
@@ -1015,6 +1082,8 @@ void CommsMPIHostBufferStream<T_Config>::setup(DVector &b, const Matrix<TConfig>
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_2step(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo_2step(b, m, num_rings);}
+template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
@@ -1023,6 +1092,8 @@ template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_2step(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo_2step(b, m, num_rings);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
@@ -1034,6 +1105,8 @@ void CommsMPIHostBufferStream<T_Config>::setup(ZVector &b, const Matrix<TConfig>
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_2step(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo_2step(b, m, num_rings);}
+template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
@@ -1042,6 +1115,8 @@ template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_2step(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo_2step(b, m, num_rings);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
@@ -1052,6 +1127,8 @@ void CommsMPIHostBufferStream<T_Config>::setup(IVector &b, const Matrix<TConfig>
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
 template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_2step(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo_2step(b, m, num_rings);}
+template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      do_exchange_halo_wait(b, m, stream);}
@@ -1061,6 +1138,8 @@ void CommsMPIHostBufferStream<T_Config>::setup(BVector &b, const Matrix<TConfig>
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED); /*do_exchange_halo(b, m);*/}
 template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_2step(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED); /*do_exchange_halo(b, m);*/}
+template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED);/*do_exchange_halo_async(b,m, event, tag, stream);*/}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {      FatalError("MPI Comms boolean exchange not implemented", AMGX_ERR_NOT_IMPLEMENTED);/*do_exchange_halo_wait(b, m, stream);*/}
@@ -1069,6 +1148,8 @@ template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::setup(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings) { do_setup(b, m, num_rings);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo(b, m, num_rings);}
+template <class T_Config>
+void CommsMPIHostBufferStream<T_Config>::exchange_halo_2step(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings) {           do_exchange_halo_2step(b, m, num_rings);}
 template <class T_Config>
 void CommsMPIHostBufferStream<T_Config>::exchange_halo_async(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream) {     do_exchange_halo_async(b, m, event, tag, stream);}
 template <class T_Config>

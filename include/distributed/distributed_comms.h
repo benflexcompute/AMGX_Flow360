@@ -164,6 +164,8 @@ class DistributedComms
         virtual void setup(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
         virtual void setup_L2H(DVector &b, Matrix<TConfig> &m, int num_rings = 1) = 0;
         virtual void exchange_halo(DVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
+        virtual void exchange_halo_2step(
+                DVector& b, const Matrix<TConfig>& m, int tag, int num_rings = 1) = 0;
         virtual void exchange_halo_async(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
         virtual void send_receive_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream) = 0;
         virtual void exchange_halo_wait(DVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
@@ -172,6 +174,8 @@ class DistributedComms
         virtual void setup(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
         virtual void setup_L2H(FVector &b, Matrix<TConfig> &m, int num_rings = 1) = 0;
         virtual void exchange_halo(FVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
+        virtual void exchange_halo_2step(
+                FVector& b, const Matrix<TConfig>& m, int tag, int num_rings = 1) = 0;
         virtual void exchange_halo_async(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
         virtual void send_receive_wait(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream) = 0;
         virtual void exchange_halo_wait(FVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
@@ -180,6 +184,8 @@ class DistributedComms
         virtual void setup(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
         virtual void setup_L2H(CVector &b, Matrix<TConfig> &m, int num_rings = 1) = 0;
         virtual void exchange_halo(CVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
+        virtual void exchange_halo_2step(
+                CVector& b, const Matrix<TConfig>& m, int tag, int num_rings = 1) = 0;
         virtual void exchange_halo_async(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
         virtual void send_receive_wait(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream) = 0;
         virtual void exchange_halo_wait(CVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
@@ -188,6 +194,8 @@ class DistributedComms
         virtual void setup(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
         virtual void setup_L2H(ZVector &b, Matrix<TConfig> &m, int num_rings = 1) = 0;
         virtual void exchange_halo(ZVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
+        virtual void exchange_halo_2step(
+                ZVector& b, const Matrix<TConfig>& m, int tag, int num_rings = 1) = 0;
         virtual void exchange_halo_async(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
         virtual void send_receive_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream) = 0;
         virtual void exchange_halo_wait(ZVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
@@ -196,6 +204,8 @@ class DistributedComms
         virtual void setup(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
         virtual void setup_L2H(IVector &b, Matrix<TConfig> &m, int num_rings = 1) = 0;
         virtual void exchange_halo(IVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
+        virtual void exchange_halo_2step(
+                IVector& b, const Matrix<TConfig>& m, int tag, int num_rings = 1) = 0;
         virtual void exchange_halo_async(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
         virtual void send_receive_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream) = 0;
         virtual void exchange_halo_wait(IVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
@@ -204,6 +214,8 @@ class DistributedComms
         virtual void setup(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
         virtual void setup_L2H(BVector &b, Matrix<TConfig> &m, int num_rings = 1) = 0;
         virtual void exchange_halo(BVector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
+        virtual void exchange_halo_2step(
+                BVector& b, const Matrix<TConfig>& m, int tag, int num_rings = 1) = 0;
         virtual void exchange_halo_async(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
         virtual void send_receive_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream) = 0;
         virtual void exchange_halo_wait(BVector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
@@ -212,6 +224,8 @@ class DistributedComms
         virtual void setup(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
         virtual void setup_L2H(I64Vector &b, Matrix<TConfig> &m, int num_rings = 1) = 0;
         virtual void exchange_halo(I64Vector &b, const Matrix<TConfig> &m, int tag, int num_rings = 1) = 0;
+        virtual void exchange_halo_2step(
+                I64Vector& b, const Matrix<TConfig>& m, int tag, int num_rings = 1) = 0;
         virtual void exchange_halo_async(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;
         virtual void send_receive_wait(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t &stream) = 0;
         virtual void exchange_halo_wait(I64Vector &b, const Matrix<TConfig> &m, cudaEvent_t event, int tag, cudaStream_t stream = NULL) = 0;

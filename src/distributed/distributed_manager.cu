@@ -2871,7 +2871,7 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 
     if (total_rows > this->renumbering.size())
     {
-        this->A->getResources()->warning("# owned nodes + # halo nodes > matrix columns: send/recv maps have some unreferences halo indices, they are not directly connected to our partition and therefore we won't compute them, please use 2-ring comms maps if you want to specify 2nd ring neighbors");
+        // this->A->getResources()->warning("# owned nodes + # halo nodes > matrix columns: send/recv maps have some unreferences halo indices, they are not directly connected to our partition and therefore we won't compute them, please use 2-ring comms maps if you want to specify 2nd ring neighbors");
     }
 
     cudaCheckError();

@@ -540,6 +540,7 @@ inline void registerParameters()
     norm_values.push_back(LMAX);
     AMG_Config::registerParameter<NormType>("norm", "the norm used for convergence testing <L1|L2|LMAX>", L2, norm_values);
     AMG_Config::registerParameter<int>("use_scalar_norm", "a flag that allows to use a scalar norm (as opposed to block norms) when dealing with block matrices (0: use block norm, 1: force use of scalar norm) <0>", 0);
+    AMG_Config::registerParameter<int>("norm_factor", "norm divided by this value when using L1_SCALED", 1);
     AMG_Config::registerParameter<double>("tolerance", "the convergence tolerance", 1e-12);
     AMG_Config::registerParameter<double>("alt_rel_tolerance", "alternative convergence relative tolerance for combined criteria", 1e-12);
     //Register Statistics and Reporting Parameters

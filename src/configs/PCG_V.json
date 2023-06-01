@@ -30,6 +30,7 @@
         "convergence": "ABSOLUTE", 
         "scope": "main", 
         "tolerance": 1e-06, 
-        "norm": "L2"
+        "norm": "L1_SCALED",
+        "norm_factor":10
     }
 }

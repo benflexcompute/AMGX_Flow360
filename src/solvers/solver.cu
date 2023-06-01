@@ -52,7 +52,7 @@ Solver<TConfig>::Solver(AMG_Config &cfg, const std::string &cfg_scope,
     m_r(NULL), m_num_iters(0), m_curr_iter(0), m_ref_count(1), tag(0), 
     m_solver_name("SolverNameNotSet"), m_skip_glued_setup(false), m_tmng(tmng)
 {
-    m_norm_factor = types::util<PODValueB>::get_one();
+    m_norm_factor = cfg.getParameter<int>("norm_factor", cfg_scope);
     m_verbosity_level = cfg.getParameter<int>("verbosity_level", cfg_scope);
     m_print_vis_data = cfg.getParameter<int>("print_vis_data", cfg_scope) != 0;
     m_monitor_residual = cfg.getParameter<int>("monitor_residual", cfg_scope) != 0;
@@ -709,9 +709,9 @@ AMGX_STATUS Solver<TConfig>::solve(Vector<TConfig> &b, Vector<TConfig> &x,
             assert(static_cast<int>(m_nrm_ini.size()) >= bsize);
         }
 
-        // Only happens if L1 scaled norm is utilised
-        Matrix<TConfig> *m_A =  dynamic_cast<Matrix<TConfig>*>(this->m_A);
-        compute_norm_factor(*m_A, b, x, m_norm_type, m_norm_factor);
+        // // Only happens if L1 scaled norm is utilised
+        // Matrix<TConfig> *m_A =  dynamic_cast<Matrix<TConfig>*>(this->m_A);
+        // compute_norm_factor(*m_A, b, x, m_norm_type, m_norm_factor);
 
         compute_norm();
         last_nrm = m_nrm_ini = m_nrm;

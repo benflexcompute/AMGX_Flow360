@@ -1915,6 +1915,7 @@ class DistributedManager< TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indP
         void transformVector(VVector_v &v);
         void transformAndUploadVectorWithCons(VVector_v &v, const void *data, int n, int block_dim);
         void revertAndDownloadVector(VVector_v &v, const void *data, int n, int block_dimy);
+        void revertAndMoveVector(VVector_v &v, void *data, int n, int block_dimy);
         void revertVector(VVector_v &v);
         void revertVector(VVector_v &v_in, VVector_v &v_out);
         void revertAndDownloadVectorWithCons(VVector_v &v, const void *data, int n, int block_dimy);
@@ -2047,6 +2048,7 @@ class DistributedManager< TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_in
         void transformAndUploadVectorWithCons(VVector_v &v, const void *data, int n, int block_dim);
 
         void revertAndDownloadVector(VVector_v &v, const void *data, int n, int block_dimy);
+        void revertAndMoveVector(VVector_v &v, void *data, int n, int block_dimy);
         void revertVector(VVector_v &v);
         void revertVector(VVector_v &v_in, VVector_v &v_out);
         void revertAndDownloadVectorWithCons(VVector_v &v, const void *data, int n, int block_dimy);

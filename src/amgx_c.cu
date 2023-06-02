@@ -1216,6 +1216,46 @@ inline AMGX_RC vector_download_impl(const AMGX_vector_handle vec,
 }
 
 template<AMGX_Mode CASE>
+inline AMGX_RC vector_download_NoCpy_impl(const AMGX_vector_handle vec,
+                                    void *data)
+{
+    typedef Vector<typename TemplateMode<CASE>::Type> VectorLetterT;
+    typedef CWrapHandle<AMGX_vector_handle, VectorLetterT> VectorW;
+    typedef typename VecPrecisionMap<AMGX_GET_MODE_VAL(AMGX_VecPrecision, CASE)>::Type ValueTypeB;
+    VectorW wrapV(vec);
+    VectorLetterT &v = *wrapV.wrapped();
+    /*if (!wrapV.is_valid()
+        || n < 0
+        || block_dim < 1)
+        AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)*/
+    cudaSetDevice(v.getResources()->getDevice(0));
+
+    if (v.getManager() != NULL)
+    {
+        int n, nnz;
+        int block_dimy = v.get_block_dimy();
+        v.getManager()->getView(OWNED, n, nnz);
+
+        if (v.is_transformed() || v.getManager()->isFineLevelGlued())
+        {
+            v.getManager()->revertAndMoveVector(v, data, n, block_dimy);
+        }
+        else
+        {
+            FatalError("No cpy for this is not implemented... [1]", AMGX_ERR_NOT_IMPLEMENTED);
+            cudaCheckError();
+        }
+    }
+    else
+    {
+        FatalError("No cpy for this is not implemented... [2]", AMGX_ERR_NOT_IMPLEMENTED);
+        cudaCheckError();
+    }
+
+    return AMGX_RC_OK;
+}
+
+template<AMGX_Mode CASE>
 inline AMGX_RC vector_get_size(AMGX_vector_handle vec,
                                int *n,
                                int *block_dim)
@@ -3487,7 +3527,51 @@ extern "C" {
         //return getCAPIerror(rc);
     }
 
+    AMGX_RC AMGX_vector_download_NoCpy_impl(const AMGX_vector_handle vec, void *data)
+    {
+        nvtxRange nvrf(__func__);
+
+        AMGX_CPU_PROFILER( "AMGX_vector_download_NoCpy " );
+        Resources *resources;
+        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL)
+        //if (!c_vec || !c_vec->is_valid()) return AMGX_RC_BAD_PARAMETERS;
+        AMGX_ERROR rc = AMGX_OK;
+        AMGX_RC rc0 = AMGX_RC_OK;
+
+        AMGX_TRIES()
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+#define AMGX_CASE_LINE(CASE) case CASE: {\
+        rc0 = vector_download_NoCpy_impl<CASE>(vec, data);\
+        } \
+        break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources)
+                    //return AMGX_RC_BAD_MODE;
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, resources)
+        return rc0;
+        //return getCAPIerror(rc);
+    }
+
     AMGX_RC AMGX_API AMGX_vector_download(const AMGX_vector_handle vec, void *data)
+    {
+        nvtxRange nvrf(__func__);
+
+        return AMGX_vector_download_impl(vec, data);
+    }
+
+    AMGX_RC AMGX_API AMGX_vector_download_NoCpy(const AMGX_vector_handle vec, void *data)
     {
         nvtxRange nvrf(__func__);
 

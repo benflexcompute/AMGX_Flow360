@@ -383,6 +383,10 @@ AMGX_RC AMGX_API AMGX_vector_download
 (const AMGX_vector_handle vec,
  void *data);
 
+AMGX_RC AMGX_API AMGX_vector_download_NoCpy
+(const AMGX_vector_handle vec,
+ void *data);
+
 AMGX_RC AMGX_API AMGX_vector_get_size
 (const AMGX_vector_handle vec,
  int *n,

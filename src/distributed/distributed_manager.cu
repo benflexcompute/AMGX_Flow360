@@ -5452,6 +5452,54 @@ void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indP
 }
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
+void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec>>::
+        revertAndMoveVector(VVector_v& v_in, void* data, int n, int block_dimy) {
+    if (this->isFineLevelConsolidated() || this->isFineLevelGlued()) {
+        FatalError("No cpy for this is not implemented... [3]", AMGX_ERR_NOT_IMPLEMENTED);
+    } else {
+        if (n == 0) {
+            FatalError("Cannot download if size = 0", AMGX_ERR_NOT_IMPLEMENTED);
+        }
+
+        if (data == NULL) {
+            FatalError("Cannot download to a NULL pointer", AMGX_ERR_NOT_IMPLEMENTED);
+        }
+
+        if (v_in.size() == 0) {
+            FatalError("Cannot download an empty vector", AMGX_ERR_NOT_IMPLEMENTED);
+        }
+
+        //-- revertVector inplace
+        if (!this->isFineLevelGlued() && this->neighbors.size() == 0 ||
+                this->renumbering.size() == 0) {
+            return;
+        }
+
+        if (v_in.get_block_size() != this->A->get_block_dimx()) {
+            printf("Blocksize mismatch!\n");
+        }
+
+        if (v_in.size() < this->halo_offsets[0] * v_in.get_block_size()) {
+            FatalError(
+                    "Unknown size of input vector - smaller than the number of rows owned by this "
+                    "partition",
+                    AMGX_ERR_NOT_IMPLEMENTED);
+        }
+
+        int size = this->halo_offsets[0];
+
+        // reorder based on row permutation
+        int num_blocks = min(4096, (size + 511) / 512);
+        inverse_reorder_vector_values<<<num_blocks, 512>>>((value_type*)data,
+                v_in.raw(),
+                this->renumbering.raw(),
+                v_in.get_block_size(),
+                size);
+        cudaCheckError();
+    }
+}
+
+template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void DistributedManager<TemplateConfig<AMGX_device, t_vecPrec, t_matPrec, t_indPrec> >::revertVector(VVector_v &v_in, VVector_v &v_out)
 {
     if (!this->isFineLevelGlued() && this->neighbors.size() == 0 || this->renumbering.size() == 0) { return;}
@@ -5639,6 +5687,12 @@ void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPre
 
 template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
 void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::revertAndDownloadVector(VVector_v &v, const void *data, int n, int block_dim)
+{
+    FatalError("Distributed solve only supported on devices", AMGX_ERR_NOT_IMPLEMENTED);
+}
+
+template <AMGX_VecPrecision t_vecPrec, AMGX_MatPrecision t_matPrec, AMGX_IndPrecision t_indPrec>
+void DistributedManager<TemplateConfig<AMGX_host, t_vecPrec, t_matPrec, t_indPrec> >::revertAndMoveVector(VVector_v &v, void *data, int n, int block_dim)
 {
     FatalError("Distributed solve only supported on devices", AMGX_ERR_NOT_IMPLEMENTED);
 }
